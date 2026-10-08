@@ -46,8 +46,12 @@ def parse_vcd(path):
 
 def plot(name):
     signals, changes, t_end = parse_vcd(ROOT / "build" / f"{name}.vcd")
-    rank = {"clk": 0, "rst": 1, "q": 9, "y": 9, "count": 9}  # clock first, outputs last
+    rank = {"clk": 0, "rst": 1, "duty": 2, "q": 9, "y": 9, "count": 9,
+            "pwm_h": 9, "pwm_l": 10}  # clock first, outputs last
     order = sorted(signals, key=lambda c: rank.get(signals[c][0], 5))
+    # a clock with hundreds of edges is unreadable: leave it out of long runs
+    order = [c for c in order if not (signals[c][0] == "clk" and len(changes[c]) > 120)]
+    order = [c for c in order if signals[c][0] != "errors"]  # testbench bookkeeping
     fig, ax = plt.subplots(figsize=(10, 0.75 * len(order) + 0.8))
     for i, code in enumerate(order):
         label, width = signals[code]
@@ -59,7 +63,7 @@ def plot(name):
                 lvl = y0 + (0.9 if v == 1 else 0)
                 xs += [t, t2]
                 ys += [lvl, lvl]
-            ax.plot(xs, ys, color="#1f9d55" if label != "clk" else "#2b6cb0", lw=1.6)
+            ax.plot(xs, ys, color={"clk": "#2b6cb0", "pwm_h": "#c05621"}.get(label, "#1f9d55"), lw=1.6)
         else:
             for (t, v), (t2, _) in zip(pts, pts[1:]):
                 if t2 <= t:
